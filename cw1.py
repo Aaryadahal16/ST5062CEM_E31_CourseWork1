@@ -5,274 +5,339 @@ import string
 import customtkinter as ct
 from tkinter import messagebox
 
+import subprocess
 
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Sample Space
-sampleSpace = string.ascii_letters + string.digits + string.punctuation
+
+ct.set_appearance_mode("dark")
+ct.set_appearance_mode("blue")
+
+global encrypted_text
+
+window = ct.CTk()
+window.title("password manager")
+window.geometry("600x340")
+
+
+
 
 # Functions
 # For getting the credentials
 
 
+def decryptData(encrypted_text):
+    base64_decrypted = base64.b64decode(encrypted_text).decode()
+    rot_decrypted = rot13_decode(base64_decrypted)
+    return rot_decrypted
+
+
+def dec_final(master_pas):
+    global encrypted_text
+
+    master_pw = master_pas
+    with open("password.txt", "r") as file:
+        saved_password = file.read().strip()
+
+    if saved_password == master_pw:
+
+        try:
+            with open("decryptedCredentials.txt", "w") as f:
+                contents = encrypted_text.split("\n")[:-1]
+                for line in contents:
+                    site, user_id, password = line.strip().split(",")
+                    decrypted_password = decryptData(password)
+                    x = f"Site: {site}, User id: {user_id}, Password: {decrypted_password}"
+                    f.write(x)      
+                subprocess.Popen(["notepad.exe", "decryptedCredentials.txt"])
+            for widget in window.winfo_children():
+                widget.destroy()
+
+            master_password = ct.CTkLabel(
+                window, text="Enter the master password generated to decrypted the file")
+            master_password.pack(pady=17)
+
+            home_btn = ct.CTkButton(
+                window, text="Take me Home", command=first_window)
+            home_btn.pack(pady=4)
+
+        except:
+            print("error")
+    else:
+        ct.CTkLabel(window, text="Error: Passwords do not match.").pack()
+
+
+def master():
+    for widget in window.winfo_children():
+        widget.destroy()
+
+    master_password = ct.CTkLabel(
+        window, text="Enter the master password u generated to decrypted the file")
+    master_password.pack(pady=17)
+
+    master_password = ct.CTkLabel(window, text="master password:")
+    master_password.pack(pady=5)
+
+    master_password_entry = ct.CTkEntry(window, show="*")
+    master_password_entry.pack(pady=5)
+
+    submit_button = ct.CTkButton(window, text="Submit", command=lambda: pw_checking(
+        master_password_entry))
+    submit_button.pack(pady=4)
+    
+
+
+def pw_checking(master_password_entry):
+
+    raw_pwd = master_password_entry.get()
+    encryptpass = encryptData(raw_pwd)
+    # master_pw = master_password.get()
+    with open("password.txt", "r") as file:
+        passencrypt = file.read().strip()
+    if encryptpass == passencrypt:
+       saved_content() 
+
+
+
+def second_window():
+
+    for widget in window.winfo_children():
+        widget.destroy()
+
+    master_password = ct.CTkLabel(
+        window, text="Enter a Master Password that will help you to decrypted the file")
+    master_password.pack(pady=17)
+
+    master_password = ct.CTkLabel(window, text="master password:")
+    master_password.pack(pady=5)
+
+    master_password = ct.CTkEntry(window, show="*")
+    master_password.pack(pady=5)
+
+    re_master_password = ct.CTkLabel(window, text="Retype the master password")
+    re_master_password.pack(pady=5)
+
+    re_master_password = ct.CTkEntry(window, show="*")
+    re_master_password.pack(pady=5)
+    
+    submit_button = ct.CTkButton(window, text="Submit", command=lambda:passcheck(master_password, re_master_password))
+    submit_button.pack(pady=4)
+
+def passcheck(master_password, re_master_password):
+    master_pas= master_password.get()
+    re_master_pas = re_master_password.get()
+    masterpass = encryptData(master_pas)
+    if master_pas == re_master_pas:
+        masterpass = encryptData(master_pas)
+        with open("password.txt", "w") as file:
+            file.write(masterpass)
+        dec_final(masterpass)
+        messagebox.showinfo("info", "password has been saved successfully !!") 
+        decryptData(encrypted_text)
+    else:
+        # Show an error message
+        ct.CTkLabel(window, text="Error: Passwords do not match.").pack()
+    
+
+def rot13_decode(text):
+    result = ""
+    for char in text:
+        ascii_value = ord(char)
+        if 65 <= ascii_value <= 90:
+            result += chr((ascii_value - 78) % 26 + 65)
+        elif 97 <= ascii_value <= 122:
+            result += chr((ascii_value - 110) % 26 + 97)
+        else:
+            result += char
+    return result
+
+
+def rot13_encode(text):
+    result = ""
+    for char in text:
+        ascii_value = ord(char)
+        if 65 <= ascii_value <= 90:
+            result += chr((ascii_value - 65 + 13) % 26 + 65)
+        elif 97 <= ascii_value <= 122:
+            result += chr((ascii_value - 97 + 13) % 26 + 97)
+        else:
+            result += char
+    return result
+
+
+def encryptData(data):
+    # Encryption process
+    rot_encrypted = rot13_encode(data)
+    base64_encrypted = base64.b64encode(rot_encrypted.encode()).decode()
+    return base64_encrypted
+
+
+def writedata(websiteName_entry, Username_entry, password_entry, root):
+    global encrypted_text, empty
+    
+    web_name = websiteName_entry.get()
+    user_name = Username_entry.get()
+    password = password_entry.get()
+
+    if web_name != "" and user_name != "" and password != "":
+        encrypted_text = (f'{web_name},{user_name},{encryptData(password)}\n')
+        with open("credentials.txt", "a") as file:
+            file.write(encrypted_text)
+        subprocess.Popen(["notepad.exe", "credentials.txt"])
+
+        root.destroy()
+        a = messagebox.showinfo(
+            'Info', "The data u entered have been sucessfully encrypted and saved to credentials.txt")
+        if a == "ok":
+            b = messagebox.askquestion(
+                "Decrypt", "Do you want to decrypt the file?")
+            if b == "yes":
+                second_window()
+
+            else:
+                first_window()
+
+    else:
+        messagebox.showerror(
+            'Error', "entry field can not be empty !!")
+
+
+def readdata():
+    '''The function is used for reading the encrypted credentials from a file.'''
+
+    with open("credentials.txt", "r") as file:
+        encrypted_text = file.read()
+    decrypted_text = decryptData(encrypted_text)
+    print(decrypted_text)
+
+
 def getCredentials():
     # Credentials Input
-    websiteName = input("Enter the website name whose details you want to save:")
-    username = input("Enter the username/email for the site:")
-    passChoice = input("If you want to use a strong generated password type 1 or If you want to use your own password type 2:")
-
-    if passChoice == '1':
-        passLen=16
-        passLenChoice=input("Default password length is 16, To use a longer/shorter password type 'n' else press any other key:")
-        if passLenChoice.lower()=="n":
-            passLen = int(
-                input(
-                    "Enter the length of the password that you want to use(e,g:8/10/69) [MAX:128]:"
-                ))
-            if(passLen > 128):
-                passLen=16
-                print("Password length too big , reverting back to default size of 16.")        
-        password=""
-        while passLen!=0:
-            password+=random.choice(sampleSpace)
-            passLen-=1
 
-    elif passChoice == '2':
-        password = input("Enter the password that you want to use:")
+    root = ct.CTk()
+    root.geometry("340x220")
 
-    return [websiteName, username, password]
+    for widget in window.winfo_children():
+        widget.destroy()
+    websiteName_label = ct.CTkLabel(root, text="Website Name:")
+    websiteName_label.pack()
 
+    websiteName_entry = ct.CTkEntry(root)
+    websiteName_entry.pack()
 
-# For getting the master password
+    Username_label = ct.CTkLabel(root, text="Username:")
+    Username_label.pack()
 
+    Username_entry = ct.CTkEntry(root)
+    Username_entry.pack()
 
-def getMasterPassword(case):
-    if case==1:
-        masterPassword = input(
-            "Enter a master password to store all your credentials(make sure you remember it):"
-        ).encode()
-    if case==2:
-        masterPassword = input(
-                "Enter your master password to continue:").encode()
+    password_label = ct.CTkLabel(root, text="Password:")
+    password_label.pack()
 
-    return masterPassword
+    password_entry = ct.CTkEntry(root, show="*", )
+    password_entry.pack()
 
+    submit_button = ct.CTkButton(
+        root, text="Submit", command=lambda: writedata(websiteName_entry, Username_entry, password_entry, root))
+    submit_button.pack()
 
-# For deriving the key
+    root.mainloop()
 
 
-def keyDeriving(masterPassword, salt=None):
-    # Making a salt file
-    if salt != None:
-        with open("salt.txt", "wb") as slt:
-            slt.write(salt)
+def show(website_entry, userid_entry):
+    # for widget in window.winfo_children():
+    #     widget.destroy()
 
-    #When the salt file is already present
-    elif salt == None:
-        try:
-            with open("salt.txt","rb") as slt:
-                salt = slt.read()
-        # If salt file is not found then it has not been created or is removed.
-        except FileNotFoundError:
-            print()
-            print(
-                "Error! No entries found! They have been either deleted or not created at the first place."
-            )
-            quit()
-    # One time process of deriving key from master password and salt.
+    web_name = website_entry.get()
+    saved_user = userid_entry.get()
 
-    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),
-                     length=32,
-                     salt=salt,
-                     iterations=100000,
-                     backend=default_backend())
-    new_key = base64.urlsafe_b64encode(kdf.derive(masterPassword))
+    data = []
+    found = False
+    with open("credentials.txt", 'r') as f:
+        contents = f.read().split("\n")[:-1]
+        for line in contents:
+            site, user_id, password = line.strip().split(",")
+            decrypted_password = decryptData(password)
+            temp = {
+                'Site': site,
+                'User id': user_id,
+                'Password': decrypted_password
+            }
+            data.append(temp)
 
-    return new_key
+    for item in data:
+        if item['Site'] == web_name and item['User id'] == saved_user:
+            found = True
+            with open("cred_to_show.txt", "w") as file:
+                x = f"Site: {item['Site']}, User id: {item['User id']}, Password: {item['Password']}"
+                file.write(x)
+                subprocess.Popen(["notepad.exe", "cred_to_show.txt"])
 
+    if not found:
+        msg_label = ct.CTkLabel(
+            window, text="No data found for the website.")
+        msg_label.pack(pady=10)
 
-# For writing the data
+    back_button = ct.CTkButton(
+        window, text="Back", command=first_window)
+    back_button.pack(pady=4)
 
 
-def writeData(websiteName, username, password, mode):
-    s1 = '\n' + 'Site:' + websiteName + '\n'
-    s2 = 'User id:' + username + '\n'
-    s3 = 'Password:' + password + '\n'
-    # Writing the credentials to a text file.
-    with open("credentials.txt", mode) as file:
-        file.write(s1 + s2 + s3)
+def saved_content():
+    for widget in window.winfo_children():
+        widget.destroy()
 
-
-# For encryting the data
+    msg_label = ct.CTkLabel(
+        window, text="Hello, You can view old content with the master password.")
+    msg_label.pack(pady=10)
 
+    website_label = ct.CTkLabel(
+        window, text="Enter the website name you have saved: ")
+    website_label.pack(pady=10)
 
-def encryptData(key, case):
-    f = Fernet(key)
+    website_entry = ct.CTkEntry(window)
+    website_entry.pack()
+    
+    userid_label = ct.CTkLabel(
+        window, text="Enter the user id you have saved: ")
+    userid_label.pack(pady=10)
 
-    # Encryption process
-    with open("credentials.txt") as file:
-        data = file.read()
-    encryptedData = f.encrypt(bytes(data, encoding='utf8'))
+    userid_entry = ct.CTkEntry(window)
+    userid_entry.pack()
 
-    with open("credentials.txt", "w") as file:
-        file.write(encryptedData.decode())
-    if case == 1:
-        print("Your credentials have been safely stored and are encrypted.")
-        return
-    if case == 2:
-        quit()
-    if case == 3:
-        print("Encrypted")
-
-
-# For decrypting the data
-
+    submit_button = ct.CTkButton(
+        window, text="Submit", command=lambda: show(website_entry, userid_entry))
+    submit_button.pack(pady=4)
 
-def decryptData(new_key):
-    f = Fernet(new_key)
-    with open("credentials.txt") as file:
-        encryptedData = file.read()
 
-    try:
-        decryptedData = f.decrypt(bytes(encryptedData, encoding='utf8'))
+def terminate():
+    exit()
 
-        with open("credentials.txt", "w") as file:
-            file.write(decryptedData.decode())
-
-        return
-    except InvalidToken:
-        print()
-        print("Wrong password, please try again!")
 
-        quit()
+def first_window():
+    for widget in window.winfo_children():
+        widget.destroy()
 
+    msg_label = ct.CTkLabel(window, text="Hello, welcome to PassGen"
+                            )
+    msg_label.pack(pady=10)
+    msg_label = ct.CTkLabel(window,
+                            text="A simple,easy to use password manager,to store all your important credentials."
+                            )
+    msg_label.pack(pady=10)
 
-# Help section
+    old_label = ct.CTkButton(
+        window, text="Click here to view old encrypted passwords", command=master, fg_color="#f883bc")
+    old_label.pack(pady=15)
 
+    new_label = ct.CTkButton(
+        window, text="Click here to create new encrypted passwords", command=getCredentials, fg_color="#f883bc")
+    new_label.pack(pady=12)
 
-def helpSection():
-    print()
-    print(
-        "Right now,you are viewing the help section of PassBot(A simple yet quite effective password manager)"
-    )
-    print("If you are using this for the 1st time then type 'new' \n")
-    print(
-        "If you have already used this to save some passwords and want to view them ,then type 'old' and choose option 2"
-    )
-    print(
-        "If you have already used this and want to save another password,then type 'old' and choose 1"
-    )
-    print("You will now go back to the menu.")
-    print()
-    return
+    exit_btn = ct.CTkButton(
+        window, text="Exit", command=terminate, fg_color="#f883bc")
+    exit_btn.pack(pady=8)
 
-# Main program starts from here.
-# Greetings!
-print(
-    "Hello, welcome to PassBot. This is a simple,easy to use password manager,to store all your important credentials."
-)
 
-while True:
-    print("To know more, type 'help'")
-    print(
-        "If you are ready to use and this is your first time,Type 'New'\nIf already used before type 'Old'"
-    )
+first_window()
 
-    userChoice = input("Enter your choice:").lower()
-
-    if userChoice == 'new':
-
-        while True:
-            # prompt for ready
-
-            readyOrNot = input(
-                "Now we shall ask you for your credentials.When ready type 'ready' else type 'quit':"
-            )
-            # if ready
-
-            if readyOrNot.lower() == "ready":
-                # input of credentials
-                websiteName, username, password = [
-                    str(x) for x in getCredentials()
-                ]
-
-                # Input for master password
-                masterPassword = getMasterPassword(1)
-
-                # One time process
-                salt = os.urandom(16)
-                key = keyDeriving(masterPassword, salt)
-
-                # writing the data
-                writeData(websiteName, username, password, 'w')
-
-                # Encryption process
-                encryptData(key, 1)
-
-                break
-            elif readyOrNot.lower() == 'quit':
-                quit()
-            else:
-                print("Wrong Choice")
-        break
-    if userChoice == 'old':
-        print(
-            "To enter new credentials type 1\nTo view saved passwords type 2:")
-        manageOrStore = input("Enter your choice:")
-
-        # If user wants to enter new data
-        if manageOrStore == '1':
-
-            masterPassword=getMasterPassword(2)
-
-            new_key = keyDeriving(masterPassword)
-
-            decryptData(new_key)
-
-            while True:
-                readyOrNot = input(
-                    "Now we shall ask you for your credentials.When ready type 'ready' else type 'quit': "
-                )
-                if readyOrNot.lower() == "ready":
-
-                    websiteName, username, password = [
-                        str(x) for x in getCredentials()
-                    ]
-
-                    writeData(websiteName, username, password, 'a')
-
-                    encryptData(new_key, 1)
-
-                    break
-
-                # If user wants to quit
-                elif readyOrNot.lower() == 'quit':
-                    encryptData(new_key, 2)
-
-        # If user wants to view stored data
-        if manageOrStore == '2':
-
-            masterPassword=getMasterPassword(2)
-
-            new_key = keyDeriving(masterPassword)
-            decryptData(new_key)
-
-            print(
-                "The file is now decrypted and you can go to it to see your credentials."
-            )
-
-            while True:
-                inp = input("When done type 'encrypt': ")
-                if inp.lower() == 'encrypt':
-                    encryptData(new_key, 3)
-                    break
-        break
-
-    if userChoice == 'help':
-        helpSection()
-    else:
-        print("Wrong Choice, you will be sent to the help section now")
-        print()
+window.mainloop()
